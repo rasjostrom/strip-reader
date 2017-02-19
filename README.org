@@ -1,0 +1,50 @@
+* StripReader
+A guided reading strip for digital content.
+
+This backend implementation of stripreader takes a file as input, extracts and splits the
+text into variably sized chunks that can then be presented by a client implementation.
+
+This works in a similar fashion as the "Guided Reading Strips" for reading on paper,
+commonly used by people with various visual/reading dysfunctions.
+
+
+* Test Usage
+#+BEGIN_SRC sh
+go run server.go &
+echo -n "example_text.txt;20;" | nc -v localhost 3333
+#+END_SRC
+
+The response will be a JSON object looking like this:
+#+BEGIN_SRC sh
+  {"chunks":["Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nunc quis dapibus
+  urna, sed ornare nisi. Suspendisse sed semper orci. Donec ","eu ornare metus. Suspendisse
+  semper metus sit amet magna cursus fringilla. Aliquam volutpat sed risus sit amet
+  posuere. Integer vulputate ","sit amet dui lacinia malesuada. In hac habitasse platea
+  dictumst. Morbi luctus venenatis laoreet. Nunc malesuada accumsan arcu vitae
+  scelerisque. ","Donec nec accumsan dui. Orci varius natoque penatibus et magnis dis
+  parturient montes, nascetur ridiculus mus.\n\nAenean elementum neque nibh, non ","porta
+  magna congue id. Curabitur tempus nisl ut nisi scelerisque tincidunt. Vestibulum lorem
+  risus, sollicitudin eget dui id, rutrum rhoncus ","quam. Aliquam magna dolor, placerat sit
+  amet risus eu, lobortis hendrerit mauris. Donec posuere sed sapien ac pellentesque. Donec
+  finibus ","urna dignissim risus condimentum pretium. Sed erat lorem, sodales id ligula
+  sed, dictum porta est. Duis sit amet metus vitae ","enim finibus volutpat. Maecenas
+  sodales gravida ante, quis vulputate eros malesuada ut.\n\nMorbi malesuada sodales tellus,
+  a finibus metus eleifend vitae. ","Suspendisse ex diam, congue nec placerat ac, mattis vel
+  nisl. Donec sit amet ligula dignissim, accumsan sem id, lobortis lorem. ","Maecenas ut
+  facilisis enim, at vestibulum leo. In hac habitasse platea dictumst. Nunc orci libero,
+  venenatis eu sodales condimentum, sagittis ","at est. Fusce finibus mollis
+  lobortis. Phasellus aliquam felis justo, eget pulvinar nibh semper porttitor.\n\n "]}
+#+END_SRC
+
+* Milestones
+v 0.1
+- [X] Read a simple text file from path defined by input
+- [X] Split the text into chunks of N words
+- [X] Distribute chunks in JSON format via a local websocket
+
+v 0.2
+- [ ] Support PDF files
+- [ ] Continously distribute pages of chunks instead of everything at once
+
+v 0.3
+- [ ] Extend chunking capabilities (sentences, char lengths, paragraphs, etc.)
