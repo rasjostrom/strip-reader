@@ -8,17 +8,18 @@ import (
 	"os"
 	"encoding/json"
 	"bytes"
-	"strconv"
+
+	"./structs"
 )
 
 
 func main() {
 	fmt.Println("StripReader Server v0.1")
-	startListen()
+	startListener()
 }
 
 
-func startListen() {
+func startListener() {
 	listener, err := net.Listen("tcp", "localhost:3333")
 	if err != nil {
 		fmt.Println("Error listening:", err.Error())
@@ -49,27 +50,29 @@ socket as a JSON object.
 */
 func handleRequest(conn net.Conn) {
 	buf := make([]byte, 1024)
-	_, err := conn.Read(buf)
+	_, conErr := conn.Read(buf)
 
-	if err != nil {
-		fmt.Println("Error reading request:", err.Error())
+	if conErr != nil {
+		fmt.Println("Error reading request:", conErr.Error())
 		conn.Write([]byte("Failed to read request, closing..."))
 		conn.Close()
 		return
 	}
 
-	req := strings.Split(string(buf), ";")
-	path := req[0]
-	chunkSize,_ := strconv.Atoi(req[1])
+	var req structs.ChunkRequest
+	// Trim here since it won't unmarshal if there are trailing NULL-bytes
+	err := json.Unmarshal(bytes.Trim(buf, "\x00"), &req)
+	if err != nil {
+		fmt.Println("ERROR:", err.Error())
+	}
+	fmt.Println("PATH:", req.Path, "WORDS/CHUNK:", req.Size)
 
-	fmt.Println("PATH:", path, "WORDS/CHUNK:", chunkSize)
-
-	conn.Write(wordChunk(path, chunkSize))
+	conn.Write(wordChunk(req.Path, req.Size))
 	conn.Close()
 }
 
 
-func readTextFile(path string) string {
+func readTxt(path string) string {
 	file, err := ioutil.ReadFile(path)
 	if err != nil {  // FIXME: deal with the error
 		fmt.Println(err.Error())
@@ -80,12 +83,10 @@ func readTextFile(path string) string {
 
 
 func wordChunk(path string, len int) []byte {
-	text := readTextFile(path)
-	chunkMap := make(map[string][]string)
-
+	text := readTxt(path)
 	chunks := []string{}
-	var tmpChunk bytes.Buffer
 
+	var tmpChunk bytes.Buffer
 	for i, v := range strings.Split(text, " ") {
 		if ((i % len == 0) && i != 0) {
 			chunks = append(chunks, tmpChunk.String())
@@ -95,8 +96,8 @@ func wordChunk(path string, len int) []byte {
 	}
 	chunks = append(chunks, tmpChunk.String()) // append remaining <len chunk
 
-	chunkMap["chunks"] = chunks
-	jsonResponse, err := json.Marshal(chunkMap)
+	message := structs.ChunkResponse{Chunks: chunks}
+	jsonResponse, err := json.Marshal(message)
 	if err != nil {
 		fmt.Println(err.Error())
 		return nil

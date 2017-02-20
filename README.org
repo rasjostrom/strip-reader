@@ -11,7 +11,7 @@ commonly used by people with various visual/reading dysfunctions.
 * Test Usage
 #+BEGIN_SRC sh
 go run server.go &
-echo -n "example_text.txt;20;" | nc -v localhost 3333
+echo -n '{"Path": "example_text.txt", "Size": 20"}' | nc -v localhost 3333
 #+END_SRC
 
 The response will be a JSON object looking like this:
@@ -40,7 +40,7 @@ The response will be a JSON object looking like this:
 v 0.1
 - [X] Read a simple text file from path defined by input
 - [X] Split the text into chunks of N words
-- [X] Distribute chunks in JSON format via a local websocket
+- [X] Distribute chunks in JSON format via websocket
 
 v 0.2
 - [ ] Support PDF files
