@@ -5,6 +5,9 @@ before passing it to the client.
 Chunks: A list of string chunks */
 type ChunkResponse struct {
 	Chunks []string
+	Page int
+	Max_Pages int
+
 }
 
 /* A chunk request is sent from the client in JSON and decoded into

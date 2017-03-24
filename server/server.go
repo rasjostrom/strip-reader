@@ -1,107 +1,98 @@
 package main
 
 import (
-	"strings"
+	"github.com/gorilla/websocket"
+	"net/http"
 	"fmt"
 	"io/ioutil"
-	"net"
-	"os"
 	"encoding/json"
 	"bytes"
+	"strings"
 
 	"./structs"
 )
 
+var upgrader = websocket.Upgrader {
+	ReadBufferSize: 1024,
+	WriteBufferSize: 1024,
+	CheckOrigin: func(r *http.Request) bool {
+        return true
+    },
+}
+
 
 func main() {
-	fmt.Println("StripReader Server v0.1")
-	startListener()
+	setupWebSocket()
+	fmt.Println("Listening on localhost:8000")
+	http.ListenAndServe(":8000", nil)
 }
 
+func setupWebSocket() {
+	http.HandleFunc("/websocket", func(writer http.ResponseWriter, req *http.Request) {
 
-func startListener() {
-	listener, err := net.Listen("tcp", "localhost:3333")
-	if err != nil {
-		fmt.Println("Error listening:", err.Error())
-		os.Exit(1)
-	}
-	fmt.Println("Listening on localhost:3333")
+		// Upgrade the connection
+		conn, err := upgrader.Upgrade(writer, req, nil)
 
-	defer listener.Close()
-	for {
-		conn, err := listener.Accept()
 		if err != nil {
-			fmt.Println("Error accepting: ", err.Error())
-			os.Exit(1)
+			fmt.Println(err)
+			return
+		}
+		fmt.Println("Client subscribed")
+
+		// Read requested file
+		msgType, msg, err := conn.ReadMessage()
+		if err != nil {
+			fmt.Println(err)
+			return
 		}
 
-		go handleRequest(conn)
-	}
-}
+		var reqMsg structs.ChunkRequest
+		err = json.Unmarshal(msg, &reqMsg)
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
 
-
-/*
-Accepts a request formatted as "PATH;CHUNK_SIZE;" where
-PATH = path to a file on disk
-CHUNK_SIZE = the number of words per chunk
-
-The file is then read, split into chunks and sent back on the
-socket as a JSON object.
-*/
-func handleRequest(conn net.Conn) {
-	buf := make([]byte, 1024)
-	_, conErr := conn.Read(buf)
-
-	if conErr != nil {
-		fmt.Println("Error reading request:", conErr.Error())
-		conn.Write([]byte("Failed to read request, closing..."))
+		// Chunk and write back the contents
+		chunkResponse := structs.ChunkResponse{
+			Chunks: wordChunk(readTxt(reqMsg.Path), reqMsg.Size),
+			Page: 1,
+			Max_Pages: 1,
+		}
+		jsonMsg, err := json.Marshal(chunkResponse)
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+		conn.WriteMessage(msgType, jsonMsg)
 		conn.Close()
-		return
-	}
-
-	var req structs.ChunkRequest
-	// Trim here since it won't unmarshal if there are trailing NULL-bytes
-	err := json.Unmarshal(bytes.Trim(buf, "\x00"), &req)
-	if err != nil {
-		fmt.Println("ERROR:", err.Error())
-	}
-	fmt.Println("PATH:", req.Path, "WORDS/CHUNK:", req.Size)
-
-	conn.Write(wordChunk(req.Path, req.Size))
-	conn.Close()
+		fmt.Println("Client Unsubscribed")
+	})
 }
-
 
 func readTxt(path string) string {
 	file, err := ioutil.ReadFile(path)
-	if err != nil {  // FIXME: deal with the error
-		fmt.Println(err.Error())
-		return ""
+	if err != nil {
+		return err.Error()
 	}
 	return string(file)
 }
 
-
-func wordChunk(path string, len int) []byte {
-	text := readTxt(path)
+/* Chunks input string into 'len' number of words.
+Returns a list of strings.
+*/
+func wordChunk(text string, len int) []string {
 	chunks := []string{}
 
 	var tmpChunk bytes.Buffer
-	for i, v := range strings.Split(text, " ") {
+	for i, value := range strings.Split(text, " ") {
 		if ((i % len == 0) && i != 0) {
 			chunks = append(chunks, tmpChunk.String())
 			tmpChunk.Reset()
 		}
-		tmpChunk.WriteString(v + " ")
+		tmpChunk.WriteString(value + " ")
 	}
 	chunks = append(chunks, tmpChunk.String()) // append remaining <len chunk
 
-	message := structs.ChunkResponse{Chunks: chunks}
-	jsonResponse, err := json.Marshal(message)
-	if err != nil {
-		fmt.Println(err.Error())
-		return nil
-	}
-
-	return jsonResponse
+	return chunks
 }
